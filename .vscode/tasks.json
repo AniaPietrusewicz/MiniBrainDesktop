@@ -1,0 +1,38 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Solution",
+            "type": "shell",
+            "command": "dotnet",
+            "args": ["build"],
+            "options": {
+                "cwd": "${workspaceFolder}/code"
+            },
+            "group": "build"
+        },
+        {
+            "label": "Run API",
+            "type": "shell",
+            "command": "dotnet",
+            "args": ["run"],
+            "options": {
+                "cwd": "${workspaceFolder}/code/src/MiniBrain.Api"
+            },
+            "group": "build",
+            "isBackground": true,
+            "dependsOn": "Build Solution"
+        },
+        {
+            "label": "Run Desktop",
+            "type": "shell",
+            "command": "dotnet",
+            "args": ["run"],
+            "options": {
+                "cwd": "${workspaceFolder}/code/src/MiniBrain.Desktop"
+            },
+            "group": "build",
+            "dependsOn": "Build Solution"
+        }
+    ]
+}

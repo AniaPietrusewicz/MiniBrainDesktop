@@ -1,0 +1,67 @@
+{
+    "github.copilot.enable": {
+        "*": true,
+        "yaml": true,
+        "plaintext": true,
+        "markdown": true,
+        "powershell": true,
+        "json": true,
+        "jsonc": true,
+        "csharp": true,
+        "typescript": true,
+        "javascript": true
+    },
+    "editor.minimap.enabled": false,
+    "editor.formatOnSave": false,
+    "git.enableSmartCommit": true,
+    "workbench.editorAssociations": {
+        "*.copilotmd": "vscode.markdown.preview.editor",
+        "*.html": "default",
+        "*.png": "imagePreview.previewEditor"
+    },
+    "github.copilot.chat.codeGeneration.instructions": [
+        {
+            "file": ".github/copilot-instructions.md"
+        }
+    ],
+    "explorer.confirmDelete": false,
+    "git.confirmSync": false,
+    "github.copilot.chat.followUps": "always",
+    "github.copilot.nextEditSuggestions.enabled": false,
+    "github.copilot.nextEditSuggestions.fixes": true,
+    "github.copilot.chat.codesearch.enabled": true,
+    "github.copilot.chat.agent.thinkingTool": true,
+    "terminal.integrated.defaultProfile.windows": "Windows PowerShell",
+    "chat.tools.autoApprove": true,
+    "chat.mcp.autoApprove": true,
+    "chat.mcp.permissions": "allow-all",
+    "tasks.showInStatusBar": [
+        "🚀 Run React Frontend",
+        "⚡ Build & Run .NET API",
+        "BS by Claude - Build and Run Full Stack"
+    ],
+    "task.allowAutomaticTasks": "on",
+    "task.confirmBeforeShutdown": false,
+    "gitlens.views.repositories.showStashes": true,
+    "gitlens.views.commits.showStashes": true,
+    "gitlens.views.branches.showStashes": true,
+    "gitlens.views.fileHistory.enabled": true,
+    "gitlens.views.lineHistory.enabled": true,
+    "gitlens.views.repositories.enabled": true,
+    "gitlens.views.search.enabled": true,
+    "gitlens.views.compare.enabled": true,
+    "gitlens.showWelcomeOnInstall": false,
+    "gitlens.showWhatsNewAfterUpgrades": false,
+    "gitlens.views.repositories.showBranches": true,
+    "gitlens.views.repositories.showRemotes": true,
+    "gitlens.views.repositories.showTags": true,
+    "gitlens.views.repositories.showContributors": true,
+    "gitlens.defaultDateFormat": "MMMM Do, YYYY h:mma",
+    "gitlens.defaultDateShortFormat": "MMM D, YYYY",
+    "gitlens.defaultTimeFormat": "h:mma",
+    "chat.mcp.serverSampling": {
+        "BSByClaude-Dev/.vscode/mcp.json: playwright": {
+            "allowedModels": []
+        }
+    }
+}

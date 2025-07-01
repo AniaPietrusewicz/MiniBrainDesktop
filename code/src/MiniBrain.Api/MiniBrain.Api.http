@@ -1,0 +1,6 @@
+@MiniBrain.Api_HostAddress = http://localhost:5089
+
+GET {{MiniBrain.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

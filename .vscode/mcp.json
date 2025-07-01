@@ -1,0 +1,64 @@
+{
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "c:\\Users\\lenovo\\Desktop\\ShitFix\\BSByClaude-Dev"
+      ]
+    },
+    "everything": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-everything"
+      ]
+    },
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp"
+      ],
+      "env": {
+        "PLAYWRIGHT_BROWSER": "chromium",
+        "PLAYWRIGHT_BROWSER_CHANNEL": "brave"
+      }
+    },
+    "docker": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-docker"
+      ],
+      "env": {
+        "DOCKER_PATH": "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker"
+      }
+    },
+    "qdrant": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-qdrant-memory"
+      ],
+      "env": {
+        "QDRANT_URL": "http://localhost:6333"
+      }
+    }
+  }
+}

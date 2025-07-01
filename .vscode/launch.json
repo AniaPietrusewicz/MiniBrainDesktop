@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch VS Code with Autonomous Copilot",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}",
+            "env": {
+                "GITHUB_COPILOT_CHAT_AGENT_REQUIRE_APPROVAL": "false",
+                "GITHUB_COPILOT_AUTONOMOUS_MODE": "true",
+                "VSCODE_COPILOT_AUTO_APPROVE": "true"
+            }
+        }
+    ]
+}
