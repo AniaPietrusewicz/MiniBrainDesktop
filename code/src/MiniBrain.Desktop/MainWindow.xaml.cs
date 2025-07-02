@@ -31,11 +31,21 @@ public partial class MainWindow : Window
         
         // Configure HttpClient with timeout settings
         _httpClient = new HttpClient();
-        _httpClient.BaseAddress = new Uri("http://localhost:5000");
+        _httpClient.BaseAddress = new Uri("http://localhost:5089");
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
         
         _logger.LogInformation("HTTP client initialized with base address: {BaseAddress} and timeout: {Timeout}s", 
-            _httpClient.BaseAddress, _httpClient.Timeout.TotalSeconds);
+        _httpClient.BaseAddress, _httpClient.Timeout.TotalSeconds);
+
+        // Add keyboard shortcuts for copy/paste
+        var copyCommand = new RoutedCommand();
+        var pasteCommand = new RoutedCommand();
+        
+        copyCommand.InputGestures.Add(new KeyGesture(Key.C, ModifierKeys.Control));
+        pasteCommand.InputGestures.Add(new KeyGesture(Key.V, ModifierKeys.Control));
+        
+        CommandBindings.Add(new CommandBinding(copyCommand, CopyExecuted));
+        CommandBindings.Add(new CommandBinding(pasteCommand, PasteExecuted));
         
         Loaded += MainWindow_Loaded;
     }
@@ -294,6 +304,8 @@ public partial class MainWindow : Window
         _logger.LogDebug("Current session ID: {SessionId}", _currentSessionId);
         
         AddMessageToChat("👤 You", userMessage, Colors.DodgerBlue);
+        AddMessageToChat("🔍 System", $"Sending request to API for agent: {_selectedAgent.Name}", Colors.Gray);
+        
         SendButton.IsEnabled = false;
         StatusTextBlock.Text = "Processing message...";
 
@@ -308,22 +320,31 @@ public partial class MainWindow : Window
 
             var json = JsonSerializer.Serialize(request);
             _logger.LogDebug("Request payload: {Json}", json);
+
+            AddMessageToChat("📤 API Request", $"Payload: {json}", Colors.DarkGray);
             
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             _logger.LogDebug("Sending POST request to /api/conversations/message");
             
             var startTime = DateTime.Now;
-            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60)); // 60 second timeout
+
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             _logger.LogDebug("Using timeout of {Timeout} seconds for Claude API call", 60);
             
+            AddMessageToChat("⏳ Processing", "Waiting for Claude API response...", Colors.Orange);
+
             var response = await _httpClient.PostAsync("/api/conversations/message", content, cts.Token);
             var duration = DateTime.Now - startTime;
             
             _logger.LogDebug("Response received in {Duration}ms with status code {StatusCode}", 
                 duration.TotalMilliseconds, response.StatusCode);
+
+            AddMessageToChat("📥 API Response", $"Status: {response.StatusCode}, Duration: {duration.TotalMilliseconds}ms", Colors.DarkGray);
             
             var responseContent = await response.Content.ReadAsStringAsync();
             _logger.LogDebug("Raw response content: {ResponseContent}", responseContent);
+            
+            AddMessageToChat("📋 Raw Response", responseContent, Colors.DarkSlateGray);
             
             if (response.IsSuccessStatusCode)
             {
@@ -421,21 +442,31 @@ public partial class MainWindow : Window
     {
         var messagePanel = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
         
+        var contextMenu = new ContextMenu();
+        var copyMenuItem = new MenuItem { Header = "Copy" };
+        copyMenuItem.Click += (s, e) => Clipboard.SetText(message);
+        contextMenu.Items.Add(copyMenuItem);
+        
         var senderBlock = new TextBlock
         {
             Text = sender,
             FontWeight = FontWeights.Bold,
             Foreground = new SolidColorBrush(color),
-            Margin = new Thickness(0, 0, 0, 5)
+            Margin = new Thickness(0, 0, 0, 5),
+            ContextMenu = contextMenu
         };
         
-        var messageBlock = new TextBlock
+        var messageBlock = new TextBox
         {
             Text = message,
             TextWrapping = TextWrapping.Wrap,
             Foreground = new SolidColorBrush(Colors.White),
             Padding = new Thickness(12),
-            Background = new SolidColorBrush(Color.FromRgb(45, 45, 48))
+            Background = new SolidColorBrush(Color.FromRgb(45, 45, 48)),
+            BorderThickness = new Thickness(0),
+            IsReadOnly = true,
+            IsTabStop = false,
+            ContextMenu = contextMenu
         };
         
         var border = new Border
@@ -569,5 +600,29 @@ public partial class MainWindow : Window
     {
         _httpClient?.Dispose();
         base.OnClosed(e);
+    }
+
+    private void CopyExecuted(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (Keyboard.FocusedElement is TextBox textBox && !string.IsNullOrEmpty(textBox.SelectedText))
+        {
+            Clipboard.SetText(textBox.SelectedText);
+        }
+        else if (Keyboard.FocusedElement is TextBox tb && string.IsNullOrEmpty(tb.SelectedText))
+        {
+            Clipboard.SetText(tb.Text);
+        }
+    }
+    
+    private void PasteExecuted(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (Keyboard.FocusedElement is TextBox textBox)
+        {
+            var clipboardText = Clipboard.GetText();
+            if (!string.IsNullOrEmpty(clipboardText))
+            {
+                textBox.SelectedText = clipboardText;
+            }
+        }
     }
 }

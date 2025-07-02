@@ -52,6 +52,15 @@ public class SendMessageRequest
     public Guid? AgentId { get; set; }
 }
 
+public class CreateConversationRequest
+{
+    [Required]
+    public Guid AgentId { get; set; }
+    
+    [Required]
+    public required string SessionId { get; set; }
+}
+
 public class ExecuteWorkflowRequest
 {
     [Required]

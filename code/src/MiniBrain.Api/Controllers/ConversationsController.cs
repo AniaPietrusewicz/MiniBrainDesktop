@@ -15,6 +15,20 @@ public class ConversationsController : ControllerBase
         _conversationService = conversationService;
     }
 
+    [HttpPost]
+    public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
+    {
+        try
+        {
+            var conversation = await _conversationService.CreateConversationAsync(request.AgentId, request.SessionId);
+            return CreatedAtAction(nameof(GetConversation), new { sessionId = conversation.SessionId }, conversation);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpPost("message")]
     public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
     {
