@@ -26,7 +26,7 @@ You have access to MCP servers, use them. Suggest addition of new MCP servers if
 Never create other instruction files outside of this folder.
 Always use Playwright with Brave browser, never Chrome.
 When you interact with another agent, never summarize or change the conversation history annd always provide the full request and response.
-
+Repo Github PAT: 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
 
 ### **ABSOLUTE CONSTRAINTS**
 0. **Perform only the task you have been asked to do. You may recommend additional tasks but never carry them out until you have explicit permission.**
