@@ -18,8 +18,12 @@ public class ClaudeApiService : IClaudeApiService
         _httpClient = httpClient;
         _settings = settings.Value;
         
+        var apiKey = _settings.ApiKeyEncoded 
+            ? System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(_settings.ApiKey))
+            : _settings.ApiKey;
+        
         _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
-        _httpClient.DefaultRequestHeaders.Add("x-api-key", _settings.ApiKey);
+        _httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
         _httpClient.DefaultRequestHeaders.Add("anthropic-version", _settings.Version);
         _httpClient.Timeout = TimeSpan.FromSeconds(_settings.TimeoutSeconds);
         
