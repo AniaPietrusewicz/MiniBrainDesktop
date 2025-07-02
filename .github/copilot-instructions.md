@@ -41,5 +41,5 @@ Repo Github PAT: github_pat_11AIKVQCA0QhkUw3IcEEPI_NRSKoREeKKztUiPKFcA12CgMibHCU
 9. **Always check that the task follows the goal and architecture described in the "Architecture spec"**
 10. **Never seed the database with any test data. Undo all test data or test methods once you finish using them.**
 11. **Never touch, move, rename or copy the "Architectural spec" file nor the "Project doco" file. They are for reference only.**
-12. **Create a log file in chat-logs folder for every chat using `Get-Date -Format "yyyy-MM-dd_HHmm"` for the filename timestamp and include a brief description (e.g., 2025-07-02_1626_weather_api_discussion.md).**
+12. **Create a log file in chat-logs folder for every chat using `Get-Date -Format "yyyy-MM-dd_HHmm"` for the filename timestamp and include a brief description in the filename. Include the COMPLETE conversation with full user inputs and MiniBrain responses, never use summaries in the file contents. Capture every detail of the technical discussion, code examples, and explanations verbatim.**
 13. **NEVER EVER UNDER ANY CIRCUMSTANCES modify this instruction file without my explicit permission each time**
