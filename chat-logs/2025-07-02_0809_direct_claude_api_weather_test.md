@@ -4,7 +4,7 @@
 
 ### Raw Request
 ```powershell
-$apiKey = "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"
+$apiKey = "YOUR_CLAUDE_API_KEY_HERE"
 $headers = @{ 
   "x-api-key" = $apiKey
   "anthropic-version" = "2023-06-01"
@@ -54,7 +54,7 @@ Invoke-RestMethod -Uri "https://api.anthropic.com/v1/messages" -Method Post -Hea
 
 ### Raw Request
 ```powershell
-$apiKey = "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"
+$apiKey = "YOUR_CLAUDE_API_KEY_HERE"
 $headers = @{ 
   "x-api-key" = $apiKey
   "anthropic-version" = "2023-06-01"

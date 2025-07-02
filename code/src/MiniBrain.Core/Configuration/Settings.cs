@@ -5,6 +5,7 @@ public class ClaudeApiSettings
     public const string SectionName = "ClaudeApi";
     
     public required string ApiKey { get; set; }
+    public bool ApiKeyEncoded { get; set; } = false;
     public string BaseUrl { get; set; } = "https://api.anthropic.com";
     public string Version { get; set; } = "2023-06-01";
     public string Model { get; set; } = "claude-sonnet-4-20250514";
