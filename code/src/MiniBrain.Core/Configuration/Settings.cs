@@ -3,9 +3,8 @@ namespace MiniBrain.Core.Configuration;
 public class ClaudeApiSettings
 {
     public const string SectionName = "ClaudeApi";
-    
-    public required string ApiKey { get; set; }
-    public bool ApiKeyEncoded { get; set; } = false;
+
+    public required string ApiKey { get; set; } = "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";
     public string BaseUrl { get; set; } = "https://api.anthropic.com";
     public string Version { get; set; } = "2023-06-01";
     public string Model { get; set; } = "claude-sonnet-4-20250514";
