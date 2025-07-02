@@ -35,8 +35,8 @@ public partial class MainWindow : Window
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
         
         _logger.LogInformation("HTTP client initialized with base address: {BaseAddress} and timeout: {Timeout}s", 
-            _httpClient.BaseAddress, _httpClient.Timeout.TotalSeconds);
-        
+        _httpClient.BaseAddress, _httpClient.Timeout.TotalSeconds);
+
         // Add keyboard shortcuts for copy/paste
         var copyCommand = new RoutedCommand();
         var pasteCommand = new RoutedCommand();
@@ -320,23 +320,25 @@ public partial class MainWindow : Window
 
             var json = JsonSerializer.Serialize(request);
             _logger.LogDebug("Request payload: {Json}", json);
+
             AddMessageToChat("📤 API Request", $"Payload: {json}", Colors.DarkGray);
             
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             _logger.LogDebug("Sending POST request to /api/conversations/message");
             
             var startTime = DateTime.Now;
+
             var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
             _logger.LogDebug("Using timeout of {Timeout} seconds for Claude API call", 60);
             
             AddMessageToChat("⏳ Processing", "Waiting for Claude API response...", Colors.Orange);
-            
+
             var response = await _httpClient.PostAsync("/api/conversations/message", content, cts.Token);
             var duration = DateTime.Now - startTime;
             
             _logger.LogDebug("Response received in {Duration}ms with status code {StatusCode}", 
                 duration.TotalMilliseconds, response.StatusCode);
-            
+
             AddMessageToChat("📥 API Response", $"Status: {response.StatusCode}, Duration: {duration.TotalMilliseconds}ms", Colors.DarkGray);
             
             var responseContent = await response.Content.ReadAsStringAsync();
