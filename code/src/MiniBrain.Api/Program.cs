@@ -19,6 +19,7 @@ builder.Services.AddDbContext<MiniBrainDbContext>(options =>
 builder.Services.AddScoped<IMiniBrainDbContext>(provider => provider.GetRequiredService<MiniBrainDbContext>());
 
 builder.Services.AddHttpClient<IClaudeApiService, ClaudeApiService>();
+builder.Services.AddHttpClient<IWebBrowsingService, WebBrowsingService>();
 builder.Services.AddScoped<IAgentService, AgentService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IGoalService, GoalService>();
