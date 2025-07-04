@@ -6,16 +6,11 @@ using MiniBrain.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<ClaudeApiSettings>(
-    builder.Configuration.GetSection(ClaudeApiSettings.SectionName));
-builder.Services.Configure<QdrantSettings>(
-    builder.Configuration.GetSection(QdrantSettings.SectionName));
-builder.Services.Configure<MiniBrainSettings>(
-    builder.Configuration.GetSection(MiniBrainSettings.SectionName));
+builder.Services.Configure<ClaudeApiSettings>(builder.Configuration.GetSection("ClaudeApi"));
+builder.Services.Configure<QdrantSettings>(builder.Configuration.GetSection("Qdrant"));
+builder.Services.Configure<MiniBrainSettings>(builder.Configuration.GetSection("MiniBrain"));
 
-builder.Services.AddDbContext<MiniBrainDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+builder.Services.AddDbContext<MiniBrainDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IMiniBrainDbContext>(provider => provider.GetRequiredService<MiniBrainDbContext>());
 
 builder.Services.AddHttpClient<IClaudeApiService, ClaudeApiService>();

@@ -27,7 +27,10 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-puppeteer"
-      ]
+      ],
+      "env": {
+        "PUPPETEER_EXECUTABLE_PATH": "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+      }
     },
     "playwright": {
       "command": "npx",
@@ -36,8 +39,8 @@
         "@playwright/mcp"
       ],
       "env": {
-        "PLAYWRIGHT_BROWSER": "chromium",
-        "PLAYWRIGHT_BROWSER_CHANNEL": "brave"
+        "PLAYWRIGHT_BROWSER_CHANNEL": "brave",
+        "PLAYWRIGHT_EXECUTABLE_PATH": "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
       }
     },
     "docker": {
