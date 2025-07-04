@@ -1,15 +1,6 @@
 {
     "github.copilot.enable": {
-        "*": true,
-        "yaml": true,
-        "plaintext": true,
-        "markdown": true,
-        "powershell": true,
-        "json": true,
-        "jsonc": true,
-        "csharp": true,
-        "typescript": true,
-        "javascript": true
+        "*": false
     },
     "editor.minimap.enabled": false,
     "editor.formatOnSave": false,
@@ -46,8 +37,6 @@
     "gitlens.views.commits.showStashes": true,
     "gitlens.views.branches.showStashes": true,
     "gitlens.views.fileHistory.enabled": true,
-    "gitlens.views.lineHistory.enabled": true,
-    "gitlens.views.repositories.enabled": true,
     "gitlens.views.search.enabled": true,
     "gitlens.views.compare.enabled": true,
     "gitlens.showWelcomeOnInstall": false,
