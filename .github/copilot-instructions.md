@@ -28,7 +28,6 @@ Never create other instruction files outside of this folder.
 Always use Playwright with Brave browser, never Chrome.
 When you interact with another agent, never summarize or change the conversation history annd always provide the full request and response.
 Repo Github PAT: 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
-Claude API key: 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
 
 ### **ABSOLUTE CONSTRAINTS**
 0. **Perform only the task you have been asked to do. You may recommend additional tasks but never carry them out until you have explicit permission.**
@@ -43,6 +42,6 @@ Claude API key: sk-ant-api03-I5qYq9Ws1-n2KEPeYFtmBd_vtga8XTXRWAlz0QHLL_W_xFzJCTM
 9. **Always check that the task follows the goal and architecture described in the "Architecture spec"**
 10. **Never seed the database with any test data. Undo all test data or test methods once you finish using them.**
 11. **Never touch, move, rename or copy the "Architectural spec" file nor the "Project doco" file. They are for reference only.**
-12. **ALWAYS create a log file in chat-logs folder for every chat using `Get-Date -Format "yyyy-MM-dd_HHmm"` for the filename timestamp and include a brief description in the filename. Include the COMPLETE conversation with full user inputs and MiniBrain responses, never use summaries in the file contents. Capture every detail of the technical discussion, code examples, and explanations verbatim.**
+12. **ALWAYS create a chat history log file in chat-logs folder for every chat. The filename is {timestamp}_{chatsummary}.md and get the timestamp using the command `Get-Date -Format "yyyy-MM-dd_HHmm"` . Include the COMPLETE conversation with full user inputs and MiniBrain responses, never use summaries in the file contents. Capture every detail of the technical discussion, code examples, and explanations verbatim.**
 13. **Never update ClaudeApi Model value in appsettings.json**
 14. **NEVER EVER UNDER ANY CIRCUMSTANCES modify this instruction file without my explicit permission each time**

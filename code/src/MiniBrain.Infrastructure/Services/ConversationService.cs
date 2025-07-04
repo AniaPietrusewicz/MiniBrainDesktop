@@ -39,9 +39,34 @@ public class ConversationService : IConversationService
         };
 
         _context.ConversationContexts.Add(conversation);
-        await _context.SaveChangesAsync();
-
-        return conversation;
+        
+        try
+        {
+            await _context.SaveChangesAsync();
+            return conversation;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message?.Contains("IX_ConversationContexts_SessionId") == true)
+        {
+            // Handle race condition where another request created the same conversation
+            // Detach the failed conversation entity if context is DbContext
+            if (_context is DbContext dbContext)
+            {
+                dbContext.Entry(conversation).State = EntityState.Detached;
+            }
+            
+            existingConversation = await _context.ConversationContexts
+                .FirstOrDefaultAsync(c => c.SessionId == sessionId);
+                
+            if (existingConversation != null)
+            {
+                existingConversation.LastAccessedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return existingConversation;
+            }
+            
+            // If we still can't find it, rethrow the original exception
+            throw;
+        }
     }
 
     public async Task<ConversationContext?> GetConversationAsync(string sessionId)
@@ -112,7 +137,33 @@ public class ConversationService : IConversationService
         
         var systemPrompt = BuildSystemPrompt(conversation.Agent, relevantContext);
         
-        var response = await _claudeService.SendMessagesWithToolsAsync(recentMessages, systemPrompt, true);
+        var response = await _claudeService.SendMessagesAsync(recentMessages, systemPrompt);
+
+        await AddMessageAsync(sessionId, "assistant", response);
+
+        return response;
+    }
+
+    public async Task<string> ProcessMessageAsync(string sessionId, string userMessage, Guid? agentId = null)
+    {
+        var conversation = await GetConversationAsync(sessionId);
+        if (conversation == null)
+        {
+            if (agentId == null)
+                throw new ArgumentException($"Conversation {sessionId} not found and no AgentId provided to create it");
+            
+            conversation = await CreateConversationAsync(agentId.Value, sessionId);
+        }
+
+        await AddMessageAsync(sessionId, "user", userMessage);
+
+        var recentMessages = await GetConversationHistoryAsync(sessionId, 20);
+        
+        var relevantContext = await GetRelevantContextAsync(userMessage);
+        
+        var systemPrompt = BuildSystemPrompt(conversation.Agent, relevantContext);
+        
+        var response = await _claudeService.SendMessagesAsync(recentMessages, systemPrompt);
 
         await AddMessageAsync(sessionId, "assistant", response);
 
@@ -149,16 +200,6 @@ public class ConversationService : IConversationService
         systemPrompt += "- Workflow execution\n";
         systemPrompt += "- Context-aware conversations\n";
         systemPrompt += "- Vector-based memory search\n";
-        systemPrompt += "- Web browsing and content extraction\n";
-        systemPrompt += "- Real-time web search\n";
-        systemPrompt += "- HTML parsing and text extraction\n";
-
-        systemPrompt += "\n\nAvailable tools:\n";
-        systemPrompt += "- navigate_to_url: Browse to any website and extract its content\n";
-        systemPrompt += "- search_web: Search the internet for current information\n";
-        systemPrompt += "- extract_text_from_html: Clean and extract text from HTML content\n";
-
-        systemPrompt += "\n\nWhen users ask about current events, weather, news, or need real-time information, use the web browsing tools to find accurate, up-to-date information.";
 
         return systemPrompt;
     }
