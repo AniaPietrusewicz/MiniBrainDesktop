@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MemoryService Architecture Document</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        h1, h2, h3 { color: #333; }
+        svg { border: 1px solid #ddd; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>MemoryService Architecture Document</h1>
+
+    <h2>1. Introduction</h2>
+    <p>This document describes the architecture for a MemoryService built using C# .NET 9, integrated with a Qdrant vector database running on Docker. The MemoryService will store and retrieve all chat conversations, enabling persistent memory and context awareness.</p>
+
+    <h2>2. Requirements & Goals</h2>
+    <ul>
+        <li>Persist every chat conversation.</li>
+        <li>Efficient semantic search and retrieval of past conversations.</li>
+        <li>Integration with Qdrant vector database.</li>
+        <li>Scalable, secure, and performant.</li>
+    </ul>
+
+    <h2>3. High-Level Architecture</h2>
+    <p>The architecture consists of three main components:</p>
+    <ul>
+        <li><strong>MemoryService API (.NET 9)</strong>: Handles requests, manages business logic.</li>
+        <li><strong>Qdrant Vector Database (Docker)</strong>: Stores vector embeddings of chat conversations.</li>
+        <li><strong>Embedding Generator</strong>: Converts chat text into vector embeddings.</li>
+    </ul>
+
+    <svg width="600" height="250">
+        <rect x="20" y="20" width="160" height="60" fill="#a2d5f2"/>
+        <text x="30" y="55">MemoryService API</text>
+
+        <rect x="220" y="20" width="160" height="60" fill="#ffb3c1"/>
+        <text x="230" y="55">Embedding Generator</text>
+
+        <rect x="420" y="20" width="160" height="60" fill="#c3f584"/>
+        <text x="430" y="55">Qdrant DB (Docker)</text>
+
+        <line x1="180" y1="50" x2="220" y2="50" stroke="#000" stroke-width="2"/>
+        <line x1="380" y1="50" x2="420" y2="50" stroke="#000" stroke-width="2"/>
+    </svg>
+
+    <h2>4. Detailed Component Breakdown</h2>
+    <h3>MemoryService API</h3>
+    <p>Built using .NET 9, exposes REST endpoints for storing and retrieving chat data.</p>
+
+    <h3>Embedding Generator</h3>
+    <p>Uses a pre-trained embedding model (e.g., OpenAI embeddings or SentenceTransformers) to convert text into vectors.</p>
+
+    <h3>Qdrant Vector Database</h3>
+    <p>Stores embeddings and metadata, supports efficient similarity search.</p>
+
+    <h2>5. Data Model & Schema</h2>
+    <pre>
+ChatEntry {
+    Id: Guid,
+    Timestamp: DateTime,
+    ConversationText: string,
+    EmbeddingVector: float[]
+}
+    </pre>
+
+    <h2>6. Interaction Flow & Sequence Diagrams</h2>
+    <svg width="600" height="300">
+        <text x="20" y="20">Sequence Diagram</text>
+        <line x1="50" y1="40" x2="50" y2="250" stroke="#000"/>
+        <text x="20" y="270">Client</text>
+
+        <line x1="250" y1="40" x2="250" y2="250" stroke="#000"/>
+        <text x="200" y="270">MemoryService API</text>
+
+        <line x1="450" y1="40" x2="450" y2="250" stroke="#000"/>
+        <text x="400" y="270">Qdrant DB</text>
+
+        <polyline points="50,60 250,60" stroke="#000" fill="none"/>
+        <text x="60" y="55">Store Chat</text>
+
+        <polyline points="250,80 450,80" stroke="#000" fill="none"/>
+        <text x="260" y="75">Store Embedding</text>
+
+        <polyline points="450,100 250,100" stroke="#000" fill="none"/>
+        <text x="260" y="95">Ack</text>
+
+        <polyline points="250,120 50,120" stroke="#000" fill="none"/>
+        <text x="60" y="115">Ack</text>
+
+        <polyline points="50,160 250,160" stroke="#000" fill="none"/>
+        <text x="60" y="155">Retrieve Chat</text>
+
+        <polyline points="250,180 450,180" stroke="#000" fill="none"/>
+        <text x="260" y="175">Search Embeddings</text>
+
+        <polyline points="450,200 250,200" stroke="#000" fill="none"/>
+        <text x="260" y="195">Return Results</text>
+
+        <polyline points="250,220 50,220" stroke="#000" fill="none"/>
+        <text x="60" y="215">Return Chat</text>
+    </svg>
+
+    <h2>7. Deployment & Infrastructure</h2>
+    <ul>
+        <li>MemoryService API deployed as Docker container.</li>
+        <li>Qdrant deployed via Docker Compose.</li>
+    </ul>
+
+    <h2>8. Security Considerations</h2>
+    <ul>
+        <li>Secure API endpoints with JWT authentication.</li>
+        <li>Docker network isolation.</li>
+    </ul>
+
+    <h2>9. Scalability & Performance</h2>
+    <ul>
+        <li>Horizontal scaling via Docker Swarm or Kubernetes.</li>
+        <li>Qdrant clustering for high availability.</li>
+    </ul>
+
+    <h2>10. Diagrams</h2>
+    <p>See embedded diagrams above.</p>
+
+</body>
+</html>

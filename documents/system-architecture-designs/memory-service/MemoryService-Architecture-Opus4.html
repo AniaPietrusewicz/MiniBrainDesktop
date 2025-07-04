@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniBrain MemoryService Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'dark' });</script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #e0e0e0;
+            background-color: #1a1a1a;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #00d4ff;
+        }
+        h1 {
+            border-bottom: 3px solid #00d4ff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            margin-top: 40px;
+            border-bottom: 2px solid #666;
+            padding-bottom: 5px;
+        }
+        .section {
+            background-color: #252525;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        code {
+            background-color: #333;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: #00ff00;
+        }
+        pre {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border-left: 4px solid #00d4ff;
+        }
+        .mermaid {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #666;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
+            color: #00d4ff;
+        }
+        .warning {
+            background-color: #4a0e0e;
+            border-left: 5px solid #ff0000;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .note {
+            background-color: #0e2a4a;
+            border-left: 5px solid #00d4ff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 MiniBrain MemoryService Architecture</h1>
+    
+    <div class="section">
+        <h2>Executive Summary</h2>
+        <p>The MemoryService is a critical component of MiniBrain that provides persistent memory storage and retrieval capabilities using Qdrant vector database. This service enables MiniBrain to remember all previous conversations, maintain context across sessions, and provide intelligent retrieval of relevant past interactions.</p>
+        
+        <div class="note">
+            <strong>Key Features:</strong>
+            <ul>
+                <li>Vector-based semantic search for conversation retrieval</li>
+                <li>Hierarchical memory organization (Session → Conversation → Message)</li>
+                <li>Real-time memory updates during conversations</li>
+                <li>Context-aware memory retrieval</li>
+                <li>Efficient similarity search using embeddings</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>System Architecture Overview</h2>
+        
+        <div class="mermaid">
+            graph TB
+                subgraph "MiniBrain Application"
+                    API[API Layer]
+                    MS[MemoryService]
+                    ES[EmbeddingService]
+                    CS[ConversationService]
+                end
+                
+                subgraph "Storage Layer"
+                    QD[Qdrant Vector DB]
+                    SQL[SQL Server LocalDB]
+                end
+                
+                subgraph "External Services"
+                    OAI[OpenAI Embeddings API]
+                end
+                
+                API --> CS
+                CS --> MS
+                MS --> ES
+                ES --> OAI
+                MS --> QD
+                CS --> SQL
+                
+                style MS fill:#00d4ff,stroke:#fff,stroke-width:2px
+                style QD fill:#ff6b6b,stroke:#fff,stroke-width:2px
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Component Architecture</h2>
+        
+        <div class="mermaid">
+            classDiagram
+                class IMemoryService {
+                    &lt;&lt;interface&gt;&gt;
+                    +StoreMemoryAsync(Memory memory) Task~string~
+                    +RetrieveMemoriesAsync(string query, int limit) Task~List~Memory~~
+                    +GetConversationHistoryAsync(string conversationId) Task~Conversation~
+                    +SearchSimilarMemoriesAsync(string content, float threshold) Task~List~Memory~~
+                    +DeleteMemoryAsync(string memoryId) Task~bool~
+                }
+                
+                class MemoryService {
+                    -IQdrantClient _qdrantClient
+                    -IEmbeddingService _embeddingService
+                    -ILogger _logger
+                    +StoreMemoryAsync(Memory memory) Task~string~
+                    +RetrieveMemoriesAsync(string query, int limit) Task~List~Memory~~
+                    +GetConversationHistoryAsync(string conversationId) Task~Conversation~
+                    +SearchSimilarMemoriesAsync(string content, float threshold) Task~List~Memory~~
+                    +DeleteMemoryAsync(string memoryId) Task~bool~
+                }
+                
+                class Memory {
+                    +string Id
+                    +string ConversationId
+                    +string SessionId
+                    +string Content
+                    +string Role
+                    +DateTime Timestamp
+                    +Dictionary~string, object~ Metadata
+                    +float[] Embedding
+                }
+                
+                class Conversation {
+                    +string Id
+                    +string SessionId
+                    +DateTime StartTime
+                    +DateTime EndTime
+                    +List~Memory~ Messages
+                    +string Summary
+                    +List~string~ Tags
+                }
+                
+                class IEmbeddingService {
+                    &lt;&lt;interface&gt;&gt;
+                    +GenerateEmbeddingAsync(string text) Task~float[]~
+                    +GenerateBatchEmbeddingsAsync(List~string~ texts) Task~List~float[]~~
+                }
+                
+                class QdrantClient {
+                    +CreateCollectionAsync(CollectionConfig config) Task
+                    +UpsertAsync(string collection, List~PointStruct~ points) Task
+                    +SearchAsync(string collection, float[] vector, int limit) Task~List~ScoredPoint~~
+                    +RetrieveAsync(string collection, List~string~ ids) Task~List~Record~~
+                }
+                
+                IMemoryService &lt;|.. MemoryService
+                MemoryService --> IEmbeddingService
+                MemoryService --> QdrantClient
+                MemoryService ..> Memory
+                MemoryService ..> Conversation
+                Conversation o-- Memory
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Data Flow Architecture</h2>
+        
+        <h3>Memory Storage Flow</h3>
+        <div class="mermaid">
+            sequenceDiagram
+                participant User
+                participant API
+                participant ConversationService
+                participant MemoryService
+                participant EmbeddingService
+                participant Qdrant
+                
+                User->>API: Send Message
+                API->>ConversationService: ProcessMessage()
+                ConversationService->>MemoryService: StoreMemoryAsync(memory)
+                MemoryService->>EmbeddingService: GenerateEmbeddingAsync(content)
+                EmbeddingService-->>MemoryService: float[] embedding
+                MemoryService->>Qdrant: UpsertAsync(collection, point)
+                Qdrant-->>MemoryService: Success
+                MemoryService-->>ConversationService: memoryId
+                ConversationService-->>API: Response
+                API-->>User: AI Response
+        </div>
+        
+        <h3>Memory Retrieval Flow</h3>
+        <div class="mermaid">
+            sequenceDiagram
+                participant User
+                participant API
+                participant ConversationService
+                participant MemoryService
+                participant EmbeddingService
+                participant Qdrant
+                
+                User->>API: Query with Context
+                API->>ConversationService: GetContext()
+                ConversationService->>MemoryService: RetrieveMemoriesAsync(query)
+                MemoryService->>EmbeddingService: GenerateEmbeddingAsync(query)
+                EmbeddingService-->>MemoryService: float[] queryEmbedding
+                MemoryService->>Qdrant: SearchAsync(collection, vector, limit)
+                Qdrant-->>MemoryService: List~ScoredPoint~
+                MemoryService-->>ConversationService: List~Memory~
+                ConversationService-->>API: Contextual Response
+                API-->>User: AI Response with Context
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Database Schema Design</h2>
+        
+        <h3>Qdrant Collection Schema</h3>
+        <pre><code>{
+    "collection_name": "minibrain_memories",
+    "vectors": {
+        "size": 1536,  // OpenAI ada-002 embedding dimension
+        "distance": "Cosine"
+    },
+    "payload_schema": {
+        "id": "keyword",
+        "conversation_id": "keyword",
+        "session_id": "keyword",
+        "content": "text",
+        "role": "keyword",
+        "timestamp": "datetime",
+        "metadata": "json"
+    }
+}</code></pre>
+
+        <h3>SQL Server Schema (Metadata)</h3>
+        <table>
+            <tr>
+                <th>Table</th>
+                <th>Column</th>
+                <th>Type</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td rowspan="7">Conversations</td>
+                <td>Id</td>
+                <td>uniqueidentifier</td>
+                <td>Primary key</td>
+            </tr>
+            <tr>
+                <td>SessionId</td>
+                <td>uniqueidentifier</td>
+                <td>Session identifier</td>
+            </tr>
+            <tr>
+                <td>StartTime</td>
+                <td>datetime2</td>
+                <td>Conversation start</td>
+            </tr>
+            <tr>
+                <td>EndTime</td>
+                <td>datetime2</td>
+                <td>Conversation end</td>
+            </tr>
+            <tr>
+                <td>Summary</td>
+                <td>nvarchar(max)</td>
+                <td>AI-generated summary</td>
+            </tr>
+            <tr>
+                <td>Tags</td>
+                <td>nvarchar(max)</td>
+                <td>JSON array of tags</td>
+            </tr>
+            <tr>
+                <td>IsActive</td>
+                <td>bit</td>
+                <td>Active conversation flag</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>Implementation Details</h2>
+        
+        <h3>Memory Service Implementation</h3>
+        <pre><code>public class MemoryService : IMemoryService
+{
+    private readonly IQdrantClient _qdrantClient;
+    private readonly IEmbeddingService _embeddingService;
+    private readonly ILogger&lt;MemoryService&gt; _logger;
+    private const string COLLECTION_NAME = "minibrain_memories";
+    
+    public async Task&lt;string&gt; StoreMemoryAsync(Memory memory)
+    {
+        memory.Id = Guid.NewGuid().ToString();
+        memory.Embedding = await _embeddingService.GenerateEmbeddingAsync(memory.Content);
+        
+        var point = new PointStruct
+        {
+            Id = new PointId { Uuid = memory.Id },
+            Vectors = memory.Embedding,
+            Payload = new Dictionary&lt;string, object&gt;
+            {
+                ["conversation_id"] = memory.ConversationId,
+                ["session_id"] = memory.SessionId,
+                ["content"] = memory.Content,
+                ["role"] = memory.Role,
+                ["timestamp"] = memory.Timestamp,
+                ["metadata"] = JsonSerializer.Serialize(memory.Metadata)
+            }
+        };
+        
+        await _qdrantClient.UpsertAsync(COLLECTION_NAME, new[] { point });
+        return memory.Id;
+    }
+}</code></pre>
+
+        <h3>Embedding Service Configuration</h3>
+        <pre><code>public class EmbeddingService : IEmbeddingService
+{
+    private readonly OpenAIClient _openAIClient;
+    private const string MODEL = "text-embedding-ada-002";
+    
+    public async Task&lt;float[]&gt; GenerateEmbeddingAsync(string text)
+    {
+        var response = await _openAIClient.Embeddings.CreateAsync(new EmbeddingCreateRequest
+        {
+            Model = MODEL,
+            Input = text
+        });
+        
+        return response.Data[0].Embedding.ToArray();
+    }
+}</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>Memory Retrieval Strategies</h2>
+        
+        <div class="mermaid">
+            graph LR
+                subgraph "Retrieval Strategies"
+                    S1[Semantic Search]
+                    S2[Temporal Search]
+                    S3[Hybrid Search]
+                    S4[Context-Aware Search]
+                end
+                
+                subgraph "Ranking Algorithms"
+                    R1[Cosine Similarity]
+                    R2[Recency Weighting]
+                    R3[Relevance Scoring]
+                end
+                
+                S1 --> R1
+                S2 --> R2
+                S3 --> R1
+                S3 --> R2
+                S4 --> R3
+        </div>
+        
+        <h3>Strategy Implementation</h3>
+        <pre><code>public async Task&lt;List&lt;Memory&gt;&gt; SearchSimilarMemoriesAsync(string content, float threshold = 0.8f)
+{
+    var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(content);
+    
+    var searchResult = await _qdrantClient.SearchAsync(new SearchRequest
+    {
+        Vector = queryEmbedding,
+        Limit = 20,
+        ScoreThreshold = threshold,
+        WithPayload = true,
+        Filter = new Filter
+        {
+            Must = new[]
+            {
+                new FieldCondition
+                {
+                    Key = "timestamp",
+                    Range = new RangeCondition
+                    {
+                        Gte = DateTime.UtcNow.AddDays(-30)
+                    }
+                }
+            }
+        }
+    });
+    
+    return searchResult.Select(ConvertToMemory).ToList();
+}</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>Performance Optimization</h2>
+        
+        <h3>Caching Strategy</h3>
+        <div class="mermaid">
+            graph TD
+                A[Memory Request] --> B{In Cache?}
+                B -->|Yes| C[Return Cached]
+                B -->|No| D[Query Qdrant]
+                D --> E[Store in Cache]
+                E --> F[Return Result]
+                
+                subgraph "Cache Layers"
+                    L1[In-Memory Cache<br/>TTL: 5 minutes]
+                    L2[Redis Cache<br/>TTL: 1 hour]
+                end
+        </div>
+        
+        <h3>Indexing Strategy</h3>
+        <ul>
+            <li>HNSW index for vector similarity search</li>
+            <li>Payload indexes on conversation_id, session_id, timestamp</li>
+            <li>Batch processing for bulk operations</li>
+            <li>Connection pooling for Qdrant client</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Security & Privacy</h2>
+        
+        <div class="warning">
+            <strong>Critical Security Measures:</strong>
+            <ul>
+                <li>All memories encrypted at rest in Qdrant</li>
+                <li>TLS encryption for all network communication</li>
+                <li>API key rotation every 90 days</li>
+                <li>Audit logging for all memory operations</li>
+                <li>PII detection and masking before storage</li>
+            </ul>
+        </div>
+        
+        <h3>Data Retention Policy</h3>
+        <pre><code>public class MemoryRetentionPolicy
+{
+    public TimeSpan ActiveConversationRetention = TimeSpan.FromDays(365);
+    public TimeSpan ArchivedConversationRetention = TimeSpan.FromDays(730);
+    public TimeSpan DeletedConversationRetention = TimeSpan.FromDays(30);
+}</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>Integration Points</h2>
+        
+        <h3>Dependency Injection Configuration</h3>
+        <pre><code>services.AddSingleton&lt;IQdrantClient&gt;(provider =&gt;
+{
+    var config = provider.GetRequiredService&lt;IConfiguration&gt;();
+    return new QdrantClient(
+        host: config["Qdrant:Host"],
+        port: int.Parse(config["Qdrant:Port"]),
+        https: bool.Parse(config["Qdrant:UseHttps"]),
+        apiKey: config["Qdrant:ApiKey"]
+    );
+});
+
+services.AddScoped&lt;IMemoryService, MemoryService&gt;();
+services.AddScoped&lt;IEmbeddingService, EmbeddingService&gt;();</code></pre>
+        
+        <h3>Configuration Schema</h3>
+        <pre><code>{
+  "Qdrant": {
+    "Host": "localhost",
+    "Port": 6333,
+    "UseHttps": false,
+    "ApiKey": "",
+    "CollectionName": "minibrain_memories"
+  },
+  "OpenAI": {
+    "ApiKey": "sk-...",
+    "EmbeddingModel": "text-embedding-ada-002"
+  },
+  "MemoryService": {
+    "MaxSearchResults": 20,
+    "DefaultSimilarityThreshold": 0.8,
+    "CacheEnabled": true,
+    "CacheTTLMinutes": 5
+  }
+}</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>Monitoring & Observability</h2>
+        
+        <div class="mermaid">
+            graph TB
+                subgraph "Metrics"
+                    M1[Storage Latency]
+                    M2[Retrieval Latency]
+                    M3[Embedding Generation Time]
+                    M4[Cache Hit Rate]
+                end
+                
+                subgraph "Logging"
+                    L1[Structured Logs]
+                    L2[Request Tracing]
+                    L3[Error Tracking]
+                end
+                
+                subgraph "Alerts"
+                    A1[High Latency Alert]
+                    A2[Storage Failure Alert]
+                    A3[API Limit Alert]
+                end
+                
+                M1 --> A1
+                M2 --> A1
+                L3 --> A2
+        </div>
+        
+        <h3>Health Check Implementation</h3>
+        <pre><code>public class MemoryServiceHealthCheck : IHealthCheck
+{
+    public async Task&lt;HealthCheckResult&gt; CheckHealthAsync(HealthCheckContext context)
+    {
+        try
+        {
+            await _qdrantClient.HealthAsync();
+            var testEmbedding = await _embeddingService.GenerateEmbeddingAsync("test");
+            
+            return HealthCheckResult.Healthy("MemoryService is operational");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("MemoryService failure", ex);
+        }
+    }
+}</code></pre>
+    </div>
+
+    <div class="section">
+        <h2>Future Enhancements</h2>
+        
+        <ol>
+            <li><strong>Multi-Modal Memory:</strong> Support for image and audio memories</li>
+            <li><strong>Memory Compression:</strong> Automatic summarization of old conversations</li>
+            <li><strong>Federated Search:</strong> Search across multiple Qdrant instances</li>
+            <li><strong>Memory Graph:</strong> Build relationship graphs between memories</li>
+            <li><strong>Adaptive Retrieval:</strong> ML-based retrieval strategy selection</li>
+            <li><strong>Memory Importance Scoring:</strong> Automatic importance ranking</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>Conclusion</h2>
+        <p>The MemoryService architecture provides a robust, scalable solution for persistent conversation memory in MiniBrain. By leveraging Qdrant's vector search capabilities and implementing intelligent retrieval strategies, the system can efficiently store and retrieve relevant memories to enhance the AI's contextual understanding.</p>
+        
+        <div class="note">
+            <strong>Key Takeaways:</strong>
+            <ul>
+                <li>Vector-based storage enables semantic similarity search</li>
+                <li>Hierarchical organization maintains conversation context</li>
+                <li>Caching and optimization ensure low-latency responses</li>
+                <li>Security measures protect sensitive conversation data</li>
+                <li>Extensible architecture supports future enhancements</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer style="text-align: center; margin-top: 50px; color: #666;">
+        <p>MiniBrain MemoryService Architecture v1.0 | Generated: <script>document.write(new Date().toISOString())</script></p>
+    </footer>
+</body>
+</html>
