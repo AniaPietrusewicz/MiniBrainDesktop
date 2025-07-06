@@ -8,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<ClaudeApiSettings>(builder.Configuration.GetSection("ClaudeApi"));
 builder.Services.Configure<QdrantSettings>(builder.Configuration.GetSection("Qdrant"));
+builder.Services.Configure<MemoryServiceSettings>(builder.Configuration.GetSection("MemoryService"));
 builder.Services.Configure<MiniBrainSettings>(builder.Configuration.GetSection("MiniBrain"));
 
 builder.Services.AddDbContext<MiniBrainDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -19,6 +20,17 @@ builder.Services.AddScoped<IAgentService, AgentService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IGoalService, GoalService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
+
+builder.Services.AddScoped<ISemanticChunker, SemanticChunker>();
+builder.Services.AddScoped<IEmbeddingService, CustomEmbeddingService>();
+builder.Services.AddScoped<IQdrantClient>(provider =>
+{
+    var config = provider.GetRequiredService<IConfiguration>();
+    var logger = provider.GetRequiredService<ILogger<QdrantClientWrapper>>();
+    var baseUrl = config.GetSection("Qdrant")["BaseUrl"] ?? "http://localhost:6333";
+    return new QdrantClientWrapper(baseUrl, logger);
+});
+builder.Services.AddScoped<IMemoryService, MemoryService>();
 builder.Services.AddSingleton<IVectorSearchService, SimpleVectorSearchService>();
 
 builder.Services.AddControllers();

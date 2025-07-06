@@ -34,7 +34,7 @@ public class ConversationsController : ControllerBase
     {
         try
         {
-            var response = await _conversationService.ProcessMessageAsync(request.SessionId, request.Message);
+            var response = await _conversationService.ProcessMessageAsync(request.SessionId, request.Message, request.AgentId);
             return Ok(new { response, timestamp = DateTime.UtcNow });
         }
         catch (Exception ex)

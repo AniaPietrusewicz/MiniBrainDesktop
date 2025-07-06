@@ -8,16 +8,16 @@ public class ConversationService : IConversationService
 {
     private readonly IMiniBrainDbContext _context;
     private readonly IClaudeApiService _claudeService;
-    private readonly IVectorSearchService _vectorSearchService;
+    private readonly IMemoryService _memoryService;
 
     public ConversationService(
         IMiniBrainDbContext context, 
         IClaudeApiService claudeService,
-        IVectorSearchService vectorSearchService)
+        IMemoryService memoryService)
     {
         _context = context;
         _claudeService = claudeService;
-        _vectorSearchService = vectorSearchService;
+        _memoryService = memoryService;
     }
 
     public async Task<ConversationContext> CreateConversationAsync(Guid agentId, string sessionId)
@@ -101,13 +101,28 @@ public class ConversationService : IConversationService
         _context.Messages.Add(message);
         await _context.SaveChangesAsync();
 
-        await _vectorSearchService.StoreVectorAsync(message.Id, content, new Dictionary<string, object>
+        // Create Memory object and store via MemoryService (following architecture)
+        var memory = new Memory
         {
-            ["type"] = "message",
-            ["role"] = role,
-            ["session_id"] = sessionId,
-            ["timestamp"] = message.Timestamp
-        });
+            Id = message.Id.ToString(),
+            ConversationId = conversation.Id.ToString(),
+            SessionId = sessionId,
+            Content = content,
+            Role = role,
+            Timestamp = message.Timestamp,
+            Metadata = new Dictionary<string, object>
+            {
+                ["message_id"] = message.Id,
+                ["conversation_context_id"] = conversation.Id,
+                ["agent_id"] = conversation.AgentId
+            },
+            Tags = new List<string>(),
+            ImportanceScore = 0.5,
+            IsArchived = false
+        };
+
+        // Follow architecture: ConversationService -> MemoryService -> EmbeddingService -> Qdrant
+        await _memoryService.StoreMemoryAsync(memory);
 
         return message;
     }
@@ -133,11 +148,12 @@ public class ConversationService : IConversationService
 
         var recentMessages = await GetConversationHistoryAsync(sessionId, 20);
         
-        var relevantContext = await GetRelevantContextAsync(userMessage);
+        var relevantContext = await GetRelevantContextAsync(userMessage, sessionId);
         
         var systemPrompt = BuildSystemPrompt(conversation.Agent, relevantContext);
         
-        var response = await _claudeService.SendMessagesAsync(recentMessages, systemPrompt);
+        // Use tools-enabled API call to give Claude access to web browsing and other tools
+        var response = await _claudeService.SendMessagesWithToolsAsync(recentMessages, systemPrompt);
 
         await AddMessageAsync(sessionId, "assistant", response);
 
@@ -146,52 +162,91 @@ public class ConversationService : IConversationService
 
     public async Task<string> ProcessMessageAsync(string sessionId, string userMessage, Guid? agentId = null)
     {
+        // Special handling for direct Claude API calls (no agent system)
+        var directClaudeAgentId = new Guid("00000000-0000-0000-0000-000000000001");
+        
         var conversation = await GetConversationAsync(sessionId);
         if (conversation == null)
         {
             if (agentId == null)
                 throw new ArgumentException($"Conversation {sessionId} not found and no AgentId provided to create it");
             
-            conversation = await CreateConversationAsync(agentId.Value, sessionId);
+            // For direct Claude calls, create a minimal conversation without agent dependency
+            if (agentId == directClaudeAgentId)
+            {
+                conversation = await CreateDirectClaudeConversationAsync(sessionId);
+            }
+            else
+            {
+                conversation = await CreateConversationAsync(agentId.Value, sessionId);
+            }
         }
 
         await AddMessageAsync(sessionId, "user", userMessage);
 
         var recentMessages = await GetConversationHistoryAsync(sessionId, 20);
         
-        var relevantContext = await GetRelevantContextAsync(userMessage);
+        var relevantContext = await GetRelevantContextAsync(userMessage, sessionId);
         
-        var systemPrompt = BuildSystemPrompt(conversation.Agent, relevantContext);
+        // Use simple system prompt for direct Claude calls
+        string systemPrompt;
+        if (agentId == directClaudeAgentId || conversation.Agent == null)
+        {
+            systemPrompt = BuildDirectClaudeSystemPrompt(relevantContext);
+        }
+        else
+        {
+            systemPrompt = BuildSystemPrompt(conversation.Agent, relevantContext);
+        }
         
-        var response = await _claudeService.SendMessagesAsync(recentMessages, systemPrompt);
+        // Use tools-enabled API call to give Claude access to web browsing and other tools
+        var response = await _claudeService.SendMessagesWithToolsAsync(recentMessages, systemPrompt);
 
         await AddMessageAsync(sessionId, "assistant", response);
 
         return response;
     }
 
-    private async Task<List<VectorSearchResult>> GetRelevantContextAsync(string query)
+    private async Task<List<Memory>> GetRelevantContextAsync(string query, string sessionId)
     {
         try
         {
-            return await _vectorSearchService.SearchAsync(query, 5, 0.7);
+            // For now, use a smart default strategy combining context-aware and recent
+            // In the future, this could be enhanced with AI decision-making
+            var contextAwareResults = await _memoryService.ContextAwareSearchAsync(query, sessionId, sessionId, 3);
+            var recentResults = await _memoryService.SearchRecentMemoriesAsync(TimeSpan.FromHours(24), 3);
+            
+            // Combine and deduplicate results
+            var allResults = new List<Memory>();
+            allResults.AddRange(contextAwareResults);
+            allResults.AddRange(recentResults.Where(r => !allResults.Any(a => a.Id == r.Id)));
+            
+            return allResults.Take(5).ToList();
         }
         catch
         {
-            return new List<VectorSearchResult>();
+            // Fallback to basic semantic search
+            try
+            {
+                return await _memoryService.RetrieveMemoriesAsync(query, 5);
+            }
+            catch
+            {
+                return new List<Memory>();
+            }
         }
     }
 
-    private string BuildSystemPrompt(Agent agent, List<VectorSearchResult> context)
+    private string BuildSystemPrompt(Agent agent, List<Memory> context)
     {
         var systemPrompt = agent.Instructions;
 
         if (context.Any())
         {
             systemPrompt += "\n\nRelevant context from previous interactions:\n";
-            foreach (var item in context)
+            foreach (var memory in context)
             {
-                systemPrompt += $"- {item.Text}\n";
+                systemPrompt += $"- [{memory.Role}] {memory.Content}\n";
             }
         }
 
@@ -200,6 +255,79 @@ public class ConversationService : IConversationService
         systemPrompt += "- Workflow execution\n";
         systemPrompt += "- Context-aware conversations\n";
         systemPrompt += "- Vector-based memory search\n";
+        systemPrompt += "\nAvailable tools:\n";
+        systemPrompt += "- navigate_to_url: Navigate to websites and extract content\n";
+        systemPrompt += "- search_web: Search the web using Google\n";
+        systemPrompt += "- extract_text_from_html: Extract clean text from HTML\n";
+        systemPrompt += "\nUse these tools proactively to answer user questions that require real-time information!";
+
+        return systemPrompt;
+    }
+
+    // Helper methods for direct Claude API calls (no agent system)
+    
+    private async Task<ConversationContext> CreateDirectClaudeConversationAsync(string sessionId)
+    {
+        // Check if direct Claude "agent" already exists in database
+        var directClaudeAgentId = new Guid("00000000-0000-0000-0000-000000000001");
+        var directClaudeAgent = await _context.Agents.FirstOrDefaultAsync(a => a.Id == directClaudeAgentId);
+        
+        // Create the special direct Claude agent if it doesn't exist
+        if (directClaudeAgent == null)
+        {
+            directClaudeAgent = new Agent
+            {
+                Id = directClaudeAgentId,
+                Name = "Direct Claude API",
+                Description = "Direct communication with Claude API without agent system",
+                Instructions = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            
+            _context.Agents.Add(directClaudeAgent);
+            await _context.SaveChangesAsync();
+        }
+
+        // Create conversation with proper agent reference
+        var conversation = new ConversationContext
+        {
+            SessionId = sessionId,
+            AgentId = directClaudeAgentId,
+            Agent = directClaudeAgent, // Properly set agent reference
+            CreatedAt = DateTime.UtcNow,
+            LastAccessedAt = DateTime.UtcNow
+        };
+
+        _context.ConversationContexts.Add(conversation);
+        await _context.SaveChangesAsync();
+        return conversation;
+    }
+    
+    private string BuildDirectClaudeSystemPrompt(List<Memory> context)
+    {
+        var systemPrompt = "You are Claude, an AI assistant created by Anthropic. You are helpful, harmless, and honest.";
+
+        if (context.Any())
+        {
+            systemPrompt += "\n\nRelevant context from previous interactions:\n";
+            foreach (var memory in context)
+            {
+                systemPrompt += $"- [{memory.Role}] {memory.Content}\n";
+            }
+        }
+
+        systemPrompt += "\n\nCurrent capabilities:\n";
+        systemPrompt += "- Goal tracking and management\n";
+        systemPrompt += "- Workflow execution\n";
+        systemPrompt += "- Context-aware conversations\n";
+        systemPrompt += "- Vector-based memory search\n";
+        systemPrompt += "\nAvailable tools:\n";
+        systemPrompt += "- navigate_to_url: Navigate to websites and extract content\n";
+        systemPrompt += "- search_web: Search the web using Google\n";
+        systemPrompt += "- extract_text_from_html: Extract clean text from HTML\n";
+        systemPrompt += "\nUse these tools proactively to answer user questions that require real-time information, weather data, current events, or any information that requires web access!";
 
         return systemPrompt;
     }

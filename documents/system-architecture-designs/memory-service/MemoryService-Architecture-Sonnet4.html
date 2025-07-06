@@ -145,7 +145,7 @@ User Input + MiniBrain Response
 ┌─────────────────────────┐
 │   Embedding Generation  │
 │   • OpenAI Ada-002      │
-│   • 1536 dimensions     │
+│   •  512 dimensions     │
 │   • Combined context    │
 └─────────────────────────┘
             │
@@ -173,7 +173,7 @@ User Input + MiniBrain Response
             </tr>
             <tr>
                 <td>Dimensions</td>
-                <td>1536</td>
+                <td>512</td>
                 <td>Standard OpenAI embedding size</td>
             </tr>
             <tr>
@@ -194,7 +194,7 @@ User Input + MiniBrain Response
             <h3>Qdrant Collection Schema</h3>
             <pre>
 Collection: "minibrain_conversations"
-├── Vector: [1536 dimensions]
+├── Vector: [512 dimensions]
 ├── Payload:
 │   ├── id: string
 │   ├── timestamp: datetime
@@ -432,7 +432,7 @@ public class EncryptionService : IEncryptionService
       "Host": "localhost",
       "Port": 6333,
       "CollectionName": "minibrain_conversations",
-      "VectorSize": 1536,
+      "VectorSize": 1512536,
       "DistanceMetric": "Cosine"
     },
     "OpenAI": {
