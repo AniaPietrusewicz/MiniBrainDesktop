@@ -16,6 +16,7 @@ builder.Services.AddScoped<IMiniBrainDbContext>(provider => provider.GetRequired
 
 builder.Services.AddHttpClient<IClaudeApiService, ClaudeApiService>();
 builder.Services.AddHttpClient<IWebBrowsingService, WebBrowsingService>();
+builder.Services.AddHttpClient<IQdrantHealthService, QdrantHealthService>();
 builder.Services.AddScoped<IAgentService, AgentService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IGoalService, GoalService>();
@@ -53,6 +54,35 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MiniBrainDbContext>();
     context.Database.EnsureCreated();
+    
+    var qdrantHealth = scope.ServiceProvider.GetRequiredService<IQdrantHealthService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    
+    var qdrantEnabled = bool.Parse(config.GetSection("Qdrant")["Enabled"] ?? "true");
+    
+    if (!qdrantEnabled)
+    {
+        logger.LogWarning("🚫 Qdrant is disabled in configuration - vector search features will not be available");
+    }
+    else
+    {
+        logger.LogInformation("🔍 Checking Qdrant availability on startup...");
+        
+        var qdrantAvailable = await qdrantHealth.EnsureQdrantAvailableAsync();
+        
+        if (!qdrantAvailable)
+        {
+            logger.LogError("❌ CRITICAL: Qdrant is not available!");
+            logger.LogError("💡 The application will start but memory/vector search features may not work properly.");
+            logger.LogError("💡 Please ensure Docker is running and execute: docker start qdrant");
+            logger.LogError("💡 Or disable Qdrant by setting Qdrant:Enabled = false in appsettings.json");
+        }
+        else
+        {
+            logger.LogInformation("✅ Qdrant is available and healthy");
+        }
+    }
 }
 
 if (app.Environment.IsDevelopment())

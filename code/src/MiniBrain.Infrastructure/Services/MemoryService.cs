@@ -49,12 +49,19 @@ public class MemoryService : IMemoryService
             // Any change here will break vector compatibility and cause system failure!
             // This value is synchronized with CustomEmbeddingService._embeddingDimension
             VectorSize = int.Parse(qdrantConfig["VectorSize"] ?? "512"),
-            Distance = qdrantConfig["Distance"] ?? "Cosine"
+            Distance = qdrantConfig["Distance"] ?? "Cosine",
+            Enabled = bool.Parse(qdrantConfig["Enabled"] ?? "true")
         };
     }
 
     public async Task<string> StoreMemoryAsync(Memory memory)
     {
+        if (!_qdrantSettings.Enabled)
+        {
+            _logger.LogInformation("🚫 Qdrant disabled - skipping memory storage for: {Id}", memory.Id);
+            return memory.Id ?? Guid.NewGuid().ToString();
+        }
+
         try
         {
             await EnsureInitializedAsync();
@@ -124,6 +131,12 @@ public class MemoryService : IMemoryService
 
     public async Task<List<Memory>> RetrieveMemoriesAsync(string query, int limit = 10)
     {
+        if (!_qdrantSettings.Enabled)
+        {
+            _logger.LogInformation("🚫 Qdrant disabled - returning empty memory results for query: {Query}", query);
+            return new List<Memory>();
+        }
+
         try
         {
             await EnsureInitializedAsync();
@@ -389,9 +402,16 @@ public class MemoryService : IMemoryService
 
     private ConversationContext ConvertFromConversation(Conversation conversation)
     {
+        // Handle chunk IDs by extracting parent ID
+        var conversationIdString = conversation.Id;
+        if (conversationIdString.Contains("_chunk_"))
+        {
+            conversationIdString = conversationIdString.Split("_chunk_")[0];
+        }
+        
         return new ConversationContext
         {
-            Id = Guid.Parse(conversation.Id),
+            Id = Guid.Parse(conversationIdString),
             SessionId = conversation.SessionId,
             CreatedAt = conversation.StartTime,
             EndTime = conversation.EndTime,
@@ -408,6 +428,13 @@ public class MemoryService : IMemoryService
     private async Task EnsureInitializedAsync()
     {
         if (_isInitialized) return;
+
+        if (!_qdrantSettings.Enabled)
+        {
+            _logger.LogInformation("🚫 Qdrant disabled - skipping initialization");
+            _isInitialized = true;
+            return;
+        }
 
         await _initializationSemaphore.WaitAsync();
         try

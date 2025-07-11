@@ -19,6 +19,7 @@ public class QdrantSettings
     public string Distance { get; set; } = string.Empty;
     public string? ApiKey { get; set; }
     public bool UseHttps { get; set; } = false;
+    public bool Enabled { get; set; } = true;
 }
 
 public class MemoryServiceSettings
