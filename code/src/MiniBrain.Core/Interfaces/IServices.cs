@@ -45,6 +45,7 @@ public interface IConversationService
     Task<Message> AddMessageAsync(string sessionId, string role, string content);
     Task<List<Message>> GetConversationHistoryAsync(string sessionId, int limit = 50);
     Task<string> ProcessMessageAsync(string sessionId, string userMessage);
+    Task<string> ProcessMessageAsync(string sessionId, string userMessage, Guid? agentId = null);
 }
 
 public interface IVectorSearchService
@@ -61,6 +62,41 @@ public interface IWebBrowsingService
     Task<string> ExtractTextFromHtmlAsync(string html);
     Task<List<string>> ExtractLinksFromHtmlAsync(string html, string? baseUrl = null);
     Task<WebPageContent> GetPageContentAsync(string url, bool includeLinks = false, CancellationToken cancellationToken = default);
+}
+
+public interface IMemoryService
+{
+    Task<string> StoreMemoryAsync(Memory memory);
+    Task<List<Memory>> RetrieveMemoriesAsync(string query, int limit = 10);
+    Task<Conversation> GetConversationHistoryAsync(string conversationId);
+    Task<List<Memory>> SearchSimilarMemoriesAsync(string content, float threshold = 0.8f);
+    
+    // Temporal Search - search by time ranges and date filters
+    Task<List<Memory>> SearchMemoriesByTimeRangeAsync(DateTime startTime, DateTime endTime, int limit = 10);
+    Task<List<Memory>> SearchRecentMemoriesAsync(TimeSpan timeSpan, int limit = 10);
+    
+    // Hybrid Search - combines multiple search strategies
+    Task<List<Memory>> HybridSearchAsync(string query, DateTime? startTime = null, DateTime? endTime = null, 
+                                        string? conversationId = null, float threshold = 0.8f, int limit = 10);
+    
+    // Enhanced Context-Aware Search
+    Task<List<Memory>> ContextAwareSearchAsync(string query, string currentConversationId, 
+                                              string sessionId, int limit = 10);
+    
+    Task<bool> DeleteMemoryAsync(string memoryId);
+}
+
+public interface IEmbeddingService
+{
+    Task<float[]> GenerateEmbeddingAsync(string text);
+    Task<List<float[]>> GenerateBatchEmbeddingsAsync(List<string> texts);
+    Task<List<TextChunk>> ChunkTextAsync(string text, int maxChunkSize = 1000, int overlapSize = 200);
+}
+
+public interface ISemanticChunker
+{
+    Task<List<TextChunk>> ChunkTextAsync(string text, int maxChunkSize = 1000, int overlapSize = 200);
+    Task<List<TextChunk>> ChunkBySemanticBoundariesAsync(string text, int maxChunkSize = 1000);
 }
 
 public class WebPageContent
@@ -87,5 +123,15 @@ public class VectorSearchResult
     public Guid Id { get; set; }
     public string Text { get; set; } = string.Empty;
     public double Score { get; set; }
+    public Dictionary<string, object> Metadata { get; set; } = new();
+}
+
+public class TextChunk
+{
+    public string Content { get; set; } = string.Empty;
+    public int StartIndex { get; set; }
+    public int EndIndex { get; set; }
+    public int ChunkIndex { get; set; }
+    public int TotalChunks { get; set; }
     public Dictionary<string, object> Metadata { get; set; } = new();
 }

@@ -62,6 +62,15 @@
       "env": {
         "QDRANT_URL": "http://localhost:6333"
       }
+    },
+    "minibrain-memory": {
+      "command": "node",
+      "args": [
+        "c:\\Users\\lenovo\\Desktop\\MiniBrain2\\mcp-servers\\minibrain-memory\\dist\\index.js"
+      ],
+      "env": {
+        "MINIBRAIN_API_URL": "http://localhost:5089"
+      }
     }
   }
 }

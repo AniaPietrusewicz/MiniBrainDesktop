@@ -22,6 +22,19 @@ public class ConversationContext
     public string ContextData { get; set; } = "{}";
     
     public List<Message> Messages { get; set; } = new();
+    
+    // Memory architecture integration - following the architecture spec
+    public DateTime? EndTime { get; set; }
+    
+    public string? Summary { get; set; }
+    
+    public List<string> Tags { get; set; } = new();
+    
+    public Dictionary<string, object> Metadata { get; set; } = new();
+    
+    public int MessageCount => Messages.Count;
+    
+    public TimeSpan Duration => (EndTime ?? DateTime.UtcNow) - CreatedAt;
 }
 
 public class Message

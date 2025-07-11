@@ -107,12 +107,14 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <!-- Agents Section -->
+                        <!-- NOTE: Agent functionality currently disabled - using direct Claude API calls -->
                         <TextBlock Text="🤖 AI Agents" FontSize="16" FontWeight="Bold" 
                                  Foreground="{StaticResource TextBrush}" Margin="0,0,0,10"/>
                         
+                        <!-- Agent creation disabled - direct Claude API mode -->
                         <Button Content="➕ Create New Agent" Style="{StaticResource ModernButton}"
                                 HorizontalAlignment="Stretch" Margin="0,0,0,10"
-                                Click="CreateAgent_Click"/>
+                                Click="CreateAgent_Click" IsEnabled="False" ToolTip="Agent creation disabled - using direct Claude API"/>
                         
                         <ListBox x:Name="AgentsListBox" Background="Transparent" 
                                BorderThickness="0" Margin="0,0,0,20"
@@ -138,10 +140,6 @@
                         <!-- Goals Section -->
                         <TextBlock Text="🎯 Active Goals" FontSize="16" FontWeight="Bold" 
                                  Foreground="{StaticResource TextBrush}" Margin="0,0,0,10"/>
-                        
-                        <Button Content="➕ Create New Goal" Style="{StaticResource ModernButton}"
-                                HorizontalAlignment="Stretch" Margin="0,0,0,10"
-                                Click="CreateGoal_Click"/>
                         
                         <ListBox x:Name="GoalsListBox" Background="Transparent" 
                                BorderThickness="0" Foreground="{StaticResource TextBrush}">
@@ -185,7 +183,7 @@
                         <StackPanel x:Name="ChatMessagesPanel">
                             <!-- Welcome Message -->
                             <Border Background="#FF2D5A2D" CornerRadius="8" Padding="12" Margin="0,0,0,10">
-                                <TextBlock Text="Welcome to MiniBrain Desktop! Select or create an AI agent to start chatting." 
+                                <TextBlock Text="Welcome to MiniBrain Desktop! Direct Claude API mode - just type your message and send!" 
                                          Foreground="{StaticResource TextBrush}" TextWrapping="Wrap"/>
                             </Border>
                         </StackPanel>
@@ -205,7 +203,7 @@
                         
                         <Button x:Name="SendButton" Grid.Column="1" Content="📤 Send" 
                               Style="{StaticResource ModernButton}"
-                              Click="SendButton_Click" IsEnabled="False"/>
+                              Click="SendButton_Click" IsEnabled="True"/>
                     </Grid>
                 </Grid>
             </Border>

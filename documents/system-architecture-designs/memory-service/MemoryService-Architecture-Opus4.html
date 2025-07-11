@@ -88,7 +88,7 @@
     
     <div class="section">
         <h2>Executive Summary</h2>
-        <p>The MemoryService is a critical component of MiniBrain that provides persistent memory storage and retrieval capabilities using Qdrant vector database. This service enables MiniBrain to remember all previous conversations, maintain context across sessions, and provide intelligent retrieval of relevant past interactions.</p>
+        <p>The MemoryService is a critical component of MiniBrain that provides persistent memory storage and retrieval capabilities using Qdrant vector database. This service enables MiniBrain to remember all previous conversations, maintain context across sessions, and provide intelligent retrieval of relevant past interactions using a custom local embedding service.</p>
         
         <div class="note">
             <strong>Key Features:</strong>
@@ -96,8 +96,8 @@
                 <li>Vector-based semantic search for conversation retrieval</li>
                 <li>Hierarchical memory organization (Session → Conversation → Message)</li>
                 <li>Real-time memory updates during conversations</li>
-                <li>Context-aware memory retrieval</li>
-                <li>Efficient similarity search using embeddings</li>
+                <li>Context-aware memory retrieval with intelligent chunking</li>
+                <li>Efficient similarity search using local custom embeddings</li>
             </ul>
         </div>
     </div>
@@ -110,8 +110,9 @@
                 subgraph "MiniBrain Application"
                     API[API Layer]
                     MS[MemoryService]
-                    ES[EmbeddingService]
+                    ES[CustomEmbeddingService]
                     CS[ConversationService]
+                    SC[SemanticChunker]
                 end
                 
                 subgraph "Storage Layer"
@@ -119,14 +120,10 @@
                     SQL[SQL Server LocalDB]
                 end
                 
-                subgraph "External Services"
-                    OAI[OpenAI Embeddings API]
-                end
-                
                 API --> CS
                 CS --> MS
                 MS --> ES
-                ES --> OAI
+                ES --> SC
                 MS --> QD
                 CS --> SQL
                 
@@ -181,10 +178,14 @@
                     +List~string~ Tags
                 }
                 
-                class IEmbeddingService {
-                    &lt;&lt;interface&gt;&gt;
+                class CustomEmbeddingService {
+                    -ILogger _logger
+                    -ISemanticChunker _semanticChunker
+                    -ConcurrentDictionary _embeddingCache
+                    -int _embeddingDimension
                     +GenerateEmbeddingAsync(string text) Task~float[]~
                     +GenerateBatchEmbeddingsAsync(List~string~ texts) Task~List~float[]~~
+                    +ChunkTextAsync(string text, int maxSize, int overlap) Task~List~TextChunk~~
                 }
                 
                 class QdrantClient {
@@ -195,11 +196,12 @@
                 }
                 
                 IMemoryService &lt;|.. MemoryService
-                MemoryService --> IEmbeddingService
+                MemoryService --> CustomEmbeddingService
                 MemoryService --> QdrantClient
                 MemoryService ..> Memory
                 MemoryService ..> Conversation
                 Conversation o-- Memory
+                CustomEmbeddingService --> ISemanticChunker
         </div>
     </div>
 
@@ -219,8 +221,8 @@
                 User->>API: Send Message
                 API->>ConversationService: ProcessMessage()
                 ConversationService->>MemoryService: StoreMemoryAsync(memory)
-                MemoryService->>EmbeddingService: GenerateEmbeddingAsync(content)
-                EmbeddingService-->>MemoryService: float[] embedding
+                MemoryService->>CustomEmbeddingService: GenerateEmbeddingAsync(content)
+                CustomEmbeddingService-->>MemoryService: float[] embedding
                 MemoryService->>Qdrant: UpsertAsync(collection, point)
                 Qdrant-->>MemoryService: Success
                 MemoryService-->>ConversationService: memoryId
@@ -241,8 +243,8 @@
                 User->>API: Query with Context
                 API->>ConversationService: GetContext()
                 ConversationService->>MemoryService: RetrieveMemoriesAsync(query)
-                MemoryService->>EmbeddingService: GenerateEmbeddingAsync(query)
-                EmbeddingService-->>MemoryService: float[] queryEmbedding
+                MemoryService->>CustomEmbeddingService: GenerateEmbeddingAsync(query)
+                CustomEmbeddingService-->>MemoryService: float[] queryEmbedding
                 MemoryService->>Qdrant: SearchAsync(collection, vector, limit)
                 Qdrant-->>MemoryService: List~ScoredPoint~
                 MemoryService-->>ConversationService: List~Memory~
@@ -258,7 +260,7 @@
         <pre><code>{
     "collection_name": "minibrain_memories",
     "vectors": {
-        "size": 1536,  // OpenAI ada-002 embedding dimension
+        "size": 512,  // Custom embedding dimension (CustomEmbeddingService)
         "distance": "Cosine"
     },
     "payload_schema": {
@@ -268,6 +270,12 @@
         "content": "text",
         "role": "keyword",
         "timestamp": "datetime",
+        "chunk_index": "integer",
+        "total_chunks": "integer",
+        "parent_memory_id": "keyword",
+        "tags": "json",
+        "importance_score": "float",
+        "is_archived": "boolean",
         "metadata": "json"
     }
 }</code></pre>
@@ -355,21 +363,46 @@
     }
 }</code></pre>
 
-        <h3>Embedding Service Configuration</h3>
-        <pre><code>public class EmbeddingService : IEmbeddingService
+        <h3>Custom Embedding Service Configuration</h3>
+        <pre><code>public class CustomEmbeddingService : IEmbeddingService
 {
-    private readonly OpenAIClient _openAIClient;
-    private const string MODEL = "text-embedding-ada-002";
+    private readonly ILogger&lt;CustomEmbeddingService&gt; _logger;
+    private readonly ISemanticChunker _semanticChunker;
+    private readonly ConcurrentDictionary&lt;string, float[]&gt; _embeddingCache;
+    private readonly int _embeddingDimension; // Loaded from Qdrant.VectorSize config
+    
+    public CustomEmbeddingService(ILogger&lt;CustomEmbeddingService&gt; logger, 
+                                 ISemanticChunker semanticChunker, 
+                                 IConfiguration configuration)
+    {
+        _logger = logger;
+        _semanticChunker = semanticChunker;
+        _embeddingCache = new ConcurrentDictionary&lt;string, float[]&gt;();
+        
+        // Load embedding dimension from same config as Qdrant
+        var qdrantConfig = configuration.GetSection("Qdrant");
+        _embeddingDimension = int.Parse(qdrantConfig["VectorSize"] ?? "512");
+    }
     
     public async Task&lt;float[]&gt; GenerateEmbeddingAsync(string text)
     {
-        var response = await _openAIClient.Embeddings.CreateAsync(new EmbeddingCreateRequest
-        {
-            Model = MODEL,
-            Input = text
-        });
+        if (string.IsNullOrWhiteSpace(text))
+            return new float[_embeddingDimension];
+
+        var normalizedText = NormalizeText(text);
+        var cacheKey = GenerateCacheKey(normalizedText);
         
-        return response.Data[0].Embedding.ToArray();
+        if (_embeddingCache.TryGetValue(cacheKey, out var cachedEmbedding))
+            return cachedEmbedding;
+
+        var embedding = await ComputeEmbeddingAsync(normalizedText);
+        _embeddingCache.TryAdd(cacheKey, embedding);
+        return embedding;
+    }
+    
+    public async Task&lt;List&lt;TextChunk&gt;&gt; ChunkTextAsync(string text, int maxChunkSize = 1000, int overlapSize = 200)
+    {
+        return await _semanticChunker.ChunkTextAsync(text, maxChunkSize, overlapSize);
     }
 }</code></pre>
     </div>
@@ -484,38 +517,35 @@
         <h2>Integration Points</h2>
         
         <h3>Dependency Injection Configuration</h3>
-        <pre><code>services.AddSingleton&lt;IQdrantClient&gt;(provider =&gt;
+        <pre><code>services.AddScoped&lt;ISemanticChunker, SemanticChunker&gt;();
+services.AddScoped&lt;IEmbeddingService, CustomEmbeddingService&gt;();
+services.AddScoped&lt;IQdrantClient&gt;(provider =&gt;
 {
     var config = provider.GetRequiredService&lt;IConfiguration&gt;();
-    return new QdrantClient(
-        host: config["Qdrant:Host"],
-        port: int.Parse(config["Qdrant:Port"]),
-        https: bool.Parse(config["Qdrant:UseHttps"]),
-        apiKey: config["Qdrant:ApiKey"]
-    );
+    var logger = provider.GetRequiredService&lt;ILogger&lt;QdrantClientWrapper&gt;&gt;();
+    var baseUrl = config.GetSection("Qdrant")["BaseUrl"] ?? "http://localhost:6333";
+    return new QdrantClientWrapper(baseUrl, logger);
 });
 
-services.AddScoped&lt;IMemoryService, MemoryService&gt;();
-services.AddScoped&lt;IEmbeddingService, EmbeddingService&gt;();</code></pre>
+services.AddScoped&lt;IMemoryService, MemoryService&gt;();</code></pre>
         
         <h3>Configuration Schema</h3>
         <pre><code>{
   "Qdrant": {
-    "Host": "localhost",
-    "Port": 6333,
+    "BaseUrl": "http://localhost:6333",
     "UseHttps": false,
     "ApiKey": "",
-    "CollectionName": "minibrain_memories"
-  },
-  "OpenAI": {
-    "ApiKey": "sk-...",
-    "EmbeddingModel": "text-embedding-ada-002"
+    "CollectionName": "minibrain_memories",
+    "VectorSize": 512,
+    "Distance": "Cosine"
   },
   "MemoryService": {
     "MaxSearchResults": 20,
     "DefaultSimilarityThreshold": 0.8,
     "CacheEnabled": true,
-    "CacheTTLMinutes": 5
+    "CacheTTLMinutes": 5,
+    "MaxChunkSize": 1000,
+    "ChunkOverlapSize": 200
   }
 }</code></pre>
     </div>
@@ -584,13 +614,15 @@ services.AddScoped&lt;IEmbeddingService, EmbeddingService&gt;();</code></pre>
 
     <div class="section">
         <h2>Conclusion</h2>
-        <p>The MemoryService architecture provides a robust, scalable solution for persistent conversation memory in MiniBrain. By leveraging Qdrant's vector search capabilities and implementing intelligent retrieval strategies, the system can efficiently store and retrieve relevant memories to enhance the AI's contextual understanding.</p>
+        <p>The MemoryService architecture provides a robust, scalable solution for persistent conversation memory in MiniBrain. By leveraging Qdrant's vector search capabilities and implementing a custom local embedding service, the system can efficiently store and retrieve relevant memories to enhance the AI's contextual understanding.</p>
         
         <div class="note">
             <strong>Key Takeaways:</strong>
             <ul>
-                <li>Vector-based storage enables semantic similarity search</li>
+                <li>Local custom embedding service eliminates external API dependencies</li>
+                <li>512-dimension vectors provide efficient semantic similarity search</li>
                 <li>Hierarchical organization maintains conversation context</li>
+                <li>Chunking and caching optimize performance for large content</li>
                 <li>Caching and optimization ensure low-latency responses</li>
                 <li>Security measures protect sensitive conversation data</li>
                 <li>Extensible architecture supports future enhancements</li>

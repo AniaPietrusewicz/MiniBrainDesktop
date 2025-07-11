@@ -115,6 +115,19 @@ public class MiniBrainDbContext : DbContext, IMiniBrainDbContext
                   .WithMany(e => e.ConversationContexts)
                   .HasForeignKey(e => e.AgentId)
                   .OnDelete(DeleteBehavior.Cascade);
+            
+            // Configure complex properties as JSON
+            entity.Property(e => e.Tags)
+                  .HasConversion(
+                      v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
+                      v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new List<string>()
+                  );
+                  
+            entity.Property(e => e.Metadata)
+                  .HasConversion(
+                      v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
+                      v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new Dictionary<string, object>()
+                  );
         });
 
         modelBuilder.Entity<Message>(entity =>

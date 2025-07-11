@@ -83,16 +83,18 @@ public partial class MainWindow : Window
             Console.WriteLine("INFO: Checking API connection...");
             await CheckApiConnectionAsync();
             
-            _logger.LogInformation("Loading agents...");
-            Console.WriteLine("INFO: Loading agents...");
-            await LoadAgentsAsync();
+            // NOTE: Agent loading currently disabled - using direct Claude API calls
+            // Agent and goal features are not fully implemented yet
+            // _logger.LogInformation("Loading agents...");
+            // Console.WriteLine("INFO: Loading agents...");
+            // await LoadAgentsAsync();
             
-            _logger.LogInformation("Loading goals...");
-            Console.WriteLine("INFO: Loading goals...");
-            await LoadGoalsAsync();
+            // _logger.LogInformation("Loading goals...");
+            // Console.WriteLine("INFO: Loading goals...");
+            // await LoadGoalsAsync();
             
-            _logger.LogInformation("Application initialization complete");
-            Console.WriteLine("INFO: Application initialization complete");
+            _logger.LogInformation("Application initialization complete - Direct Claude API mode");
+            Console.WriteLine("INFO: Application initialization complete - Direct Claude API mode");
         }
         catch (Exception ex)
         {
@@ -453,13 +455,12 @@ public partial class MainWindow : Window
 
     private async Task SendMessageAsync()
     {
-        _logger.LogInformation("Starting SendMessageAsync");
+        // NOTE: Currently bypassing agent system and making direct Claude API calls
+        // Agent features are not implemented yet, so we send messages directly
+        _logger.LogInformation("Starting SendMessageAsync - Direct Claude API mode");
         
-        if (_selectedAgent == null)
-        {
-            _logger.LogWarning("No agent selected, cannot send message");
-            return;
-        }
+        // Removed agent check - no longer required for direct API calls
+        // if (_selectedAgent == null) { return; }
         
         if (string.IsNullOrWhiteSpace(ChatInputTextBox.Text))
         {
@@ -470,23 +471,27 @@ public partial class MainWindow : Window
         var userMessage = ChatInputTextBox.Text.Trim();
         ChatInputTextBox.Text = "";
         
-        _logger.LogInformation("Sending message: {UserMessage} to agent: {AgentId} ({AgentName})", 
-            userMessage, _selectedAgent.Id, _selectedAgent.Name);
+        // Direct API call without agent dependency
+        _logger.LogInformation("Sending direct message to Claude API: {UserMessage}", userMessage);
         _logger.LogDebug("Current session ID: {SessionId}", _currentSessionId);
         
         AddMessageToChat("👤 You", userMessage, Colors.DodgerBlue);
-        AddMessageToChat("🔍 System", $"Sending request to API for agent: {_selectedAgent.Name}", Colors.Gray);
+        AddMessageToChat("🔍 System", "Sending direct request to Claude API (no agent)", Colors.Gray);
         
         SendButton.IsEnabled = false;
         StatusTextBlock.Text = "Processing message...";
 
         try
         {
+            // Simplified request for direct Claude API call
+            // Using a special UUID that indicates "direct Claude mode" 
+            var directClaudeAgentId = new Guid("00000000-0000-0000-0000-000000000001");
+            
             var request = new
             {
                 SessionId = _currentSessionId,
                 Message = userMessage,
-                AgentId = _selectedAgent.Id
+                AgentId = directClaudeAgentId  // Direct Claude API agent ID
             };
 
             var json = JsonSerializer.Serialize(request);
@@ -536,7 +541,8 @@ public partial class MainWindow : Window
                             botResponse = "No response received";
                         }
                         
-                        AddMessageToChat($"🤖 {_selectedAgent.Name}", botResponse, Colors.MediumSeaGreen);
+                        // Direct Claude response without agent name
+                        AddMessageToChat("🤖 Claude", botResponse, Colors.MediumSeaGreen);
                         StatusTextBlock.Text = "Message sent successfully";
                     }
                     else
@@ -791,78 +797,6 @@ public partial class MainWindow : Window
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             _logger.LogError(ex, "Error in create agent click handler");
             //ShowErrorMessage($"Error creating agent: {ex.Message}");
-        }
-    }
-
-    private async void CreateGoal_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (_selectedAgent == null)
-            {
-                Console.WriteLine("WARNING: No agent selected for goal creation");
-                _logger.LogError("Please select an agent first");
-                //ShowErrorMessage("Please select an agent first");
-                return;
-            }
-
-            Console.WriteLine($"INFO: Create goal dialog requested for agent {_selectedAgent.Name}");
-            var dialog = new CreateGoalDialog();
-            if (dialog.ShowDialog() == true)
-            {
-                try
-                {
-                    Console.WriteLine($"INFO: Creating new goal: {dialog.GoalTitle}");
-                    var request = new
-                    {
-                        AgentId = _selectedAgent.Id,
-                        Title = dialog.GoalTitle,
-                        Description = dialog.GoalDescription,
-                        Priority = dialog.GoalPriority
-                    };
-
-                    var json = JsonSerializer.Serialize(request);
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                    var response = await _httpClient.PostAsync("/api/goals", content);
-                    
-                    if (response.IsSuccessStatusCode)
-                    {
-                        Console.WriteLine("INFO: Goal created successfully");
-                        await LoadGoalsAsync();
-                        StatusTextBlock.Text = "Goal created successfully";
-                    }
-                    else
-                    {
-                        var responseContent = await response.Content.ReadAsStringAsync();
-                        Console.WriteLine($"ERROR: Failed to create goal. Status: {response.StatusCode}, Response: {responseContent}");
-                        _logger.LogError($"Failed to create goal. Status: {response.StatusCode}");
-                        //ShowErrorMessage($"Failed to create goal. Status: {response.StatusCode}");
-                    }
-                }
-                catch (HttpRequestException ex)
-                {
-                    Console.WriteLine($"ERROR: HTTP request failed while creating goal: {ex.Message}");
-                    _logger.LogError(ex, "HTTP request failed while creating goal");
-                    //ShowErrorMessage($"Network error creating goal: {ex.Message}");
-                }
-                catch (JsonException ex)
-                {
-                    Console.WriteLine($"ERROR: JSON serialization failed while creating goal: {ex.Message}");
-                    _logger.LogError(ex, "JSON serialization failed while creating goal");
-                    _logger.LogError($"Data format error creating goal: {ex.Message}");
-                    //ShowErrorMessage($"Data format error creating goal: {ex.Message}");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            var errorMsg = $"ERROR in CreateGoal_Click: {ex.Message}";
-            Console.WriteLine(errorMsg);
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            _logger.LogError(ex, "Error in create goal click handler");
-            _logger.LogError($"Error creating goal: {ex.Message}");
-            //ShowErrorMessage($"Error creating goal: {ex.Message}");
         }
     }
 
